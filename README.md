@@ -12,7 +12,7 @@ StackChan (M5Stack CoreS3 + 車輪台車) を、LAN 内の PC で動く Hub か�
 
 ## 必要なもの
 
-- M5Stack CoreS3 を載せた StackChan + 車輪台車
+- M5Stack CoreS3 を載せた StackChan + 車輪台車 (台車の部品は `cad/` の STL を 3D プリントする)
 - M5StickC Plus + Hat MiniJoyC (任意。リモコンを使う場合)
 - データ通信対応の USB Type-C ケーブル、2.4 GHz の Wi-Fi
 - Hub 用 PC: Ubuntu 22.04 / 24.04 または Windows 10 (22H2) / 11 (x64)、空きディスク 25 GB 以上
@@ -99,6 +99,16 @@ curl -s -X POST http://127.0.0.1:8341/vlm/qa -H 'Content-Type: application/json'
 ```
 
 カメラ画像についての回答が JSON で返る。状態は `curl -s http://127.0.0.1:8341/status`、最新のカメラ画像は `http://127.0.0.1:8341/camera/latest.jpg` で取れる。
+
+## CAD データ
+
+`cad/` に台車の部品の STL (単位 mm) がある。
+
+| ファイル | 部品 | 外形 (mm) |
+|---|---|---|
+| `PartA.stl` | 上部 | 50 × 23 × 12 |
+| `PartB.stl` | フレーム | 42 × 62 × 46.6 |
+| `PartC.stl` | 車輪 | 29 × 29 × 15 |
 
 ## 設定
 
