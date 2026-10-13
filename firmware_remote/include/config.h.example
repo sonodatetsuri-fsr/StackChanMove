@@ -1,0 +1,55 @@
+#pragma once
+
+// ---------------------------------------------------------------------------
+// firmware_remote 設定 — M5StickC Plus + Hat MiniJoyC リモコン
+//
+// このファイルは config.h.example と同一内容で配布する。実機固有の値
+// (JOY_BTN_ACTIVE_LOW / JOY_INVERT_* など) を変えるときはここだけを編集する。
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// ペアリング
+// ---------------------------------------------------------------------------
+// DISCOVER / ACK の aux に下位 16 bit を載せる共有鍵。
+// CoreS3 側 (firmware/include/config.h) と必ず同一値にすること。
+#define JOY_PAIR_KEY 0x5354434Au  // 'S','T','C','J'
+#define JOY_ESPNOW_ENCRYPT 0      // 1 で ESP-NOW の PMK/LMK 暗号化を有効化
+#define JOY_DISCOVER_RETRY 3      // 1 チャネルあたりの DISCOVER 送信回数
+#define JOY_KEEPALIVE_DISCOVER_MS 2000  // LINKED 中も この間隔で DISCOVER を 1 発出す
+                                        // (CoreS3 再起動でペア情報を失っても自動再リンクするため)
+#define JOY_ACK_WAIT_MS 150       // DISCOVER 1 回あたりの ACK 待ち時間 [ms] (CoreS3 の loop() 遅延を吸収)
+#define JOY_REPAIR_HOLD_MS 2000   // BtnA 長押しで NVS のピア情報を消す時間 [ms]
+
+// ---------------------------------------------------------------------------
+// MiniJoyC (I2C, HAT ヘッダ)
+// ---------------------------------------------------------------------------
+#define JOY_I2C_ADDR 0x54
+#define JOY_I2C_SDA 0   // StickC Plus の HAT ヘッダ G0
+#define JOY_I2C_SCL 26  // 同 G26
+#define JOY_I2C_SPEED 200000UL
+
+// ---------------------------------------------------------------------------
+// 読み取りと正規化
+// ---------------------------------------------------------------------------
+#define JOY_POLL_MS 50            // スティック読み取り周期 (20 Hz)
+#define JOY_IDLE_HB_MS 200        // 中立がこの時間続いたら 5 Hz ハートビートに落とす
+#define JOY_IDLE_SEND_MS 200      // 上記ハートビートの送信周期 (5 Hz)
+#define JOY_DEADZONE 0.10f        // 半径判定のデッドゾーン
+#define JOY_EXPO 0.3f             // x' = (1-e)x + e x^3
+#define JOY_INVERT_X 1            // 1 で x を反転 (x = 左が正)。実機確認 2026-08-27: MiniJoyC の POS_X は右が正のため反転する
+#define JOY_INVERT_Y 0            // 1 で y を反転 (y = 前が正)
+#define JOY_USE_HAT_CAL 0         // 1 で MiniJoyC 内蔵校正 (CAL_REG) の中央値を使う
+#define JOY_CENTER_SAMPLES 20     // 起動時の中央校正サンプル数
+// MiniJoyC の BUTTON_REG は押下で 0 になる想定 (実機で必ず確認すること)。
+// 押下で 1 になる個体では 0 にする。
+#define JOY_BTN_ACTIVE_LOW 1
+
+// ---------------------------------------------------------------------------
+// リンク監視 / 電源 / 診断
+// ---------------------------------------------------------------------------
+#define JOY_LINK_FAIL_N 10        // 送達の連続失敗がこの回数以上、かつ
+#define JOY_LINK_LOST_MS 2000     // 最後の送達成功からこの時間 1 回も届かなければ LOST
+                                  // (LOST 中もピアが分かっていれば JOY を送り続け、1 回届けば即 LINKED に戻る。
+                                  //  CoreS3 のカメラ/マイク送信との電波干渉で 0.5 秒程度の連続失敗は普通に起きる)
+#define JOY_LOW_BAT_MV 3400       // これ未満で flags.bit1 を立て LED を橙にする
+#define JOY_DIAG_INTERVAL_MS 5000 // シリアル診断ログの周期

@@ -1,0 +1,4 @@
+# シェルスクリプトは LF、Windows のバッチ / PowerShell は CRLF で固定する
+*.sh text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf

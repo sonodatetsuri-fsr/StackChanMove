@@ -1,0 +1,36 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# PlatformIO
+.pio/
+firmware*/include/config.h
+
+# IDE / editor
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / runtime artifacts
+.env
+nohup.out
+*.log
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Runtime data (検証用の音声など)
+data/
+
+# セットアップで取得する VOICEVOX ENGINE 等とログ
+third_party/
+logs/

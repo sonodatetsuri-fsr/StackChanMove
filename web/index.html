@@ -1,0 +1,1095 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open StackChan Move</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --fg: #1d2129;
+    --muted: #5f6673;
+    --border: #d8dce3;
+    --accent: #2f6fdf;
+    --accent-fg: #ffffff;
+    --btn: #eef0f4;
+    --btn-active: #c9d8f6;
+    --ok: #1f8a4c;
+    --warn: #b7791f;
+    --err: #c53030;
+    --overlay: rgba(20, 22, 28, 0.62);
+    --overlay-fg: #ffffff;
+    --cam-bg: #101216;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121418;
+      --panel: #1c1f26;
+      --fg: #e6e8ec;
+      --muted: #9aa1ad;
+      --border: #313641;
+      --accent: #5b8ff0;
+      --accent-fg: #0d1117;
+      --btn: #2a2f39;
+      --btn-active: #34507f;
+      --ok: #48bb78;
+      --warn: #ecc94b;
+      --err: #fc8181;
+      --overlay: rgba(0, 0, 0, 0.66);
+      --overlay-fg: #ffffff;
+      --cam-bg: #000000;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--panel);
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 13px;
+    border: 1px solid var(--border); color: var(--muted); white-space: nowrap;
+  }
+  .badge.on { color: var(--ok); border-color: var(--ok); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
+  .badge.err { color: var(--err); border-color: var(--err); }
+  main {
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px;
+    padding: 16px; max-width: 1400px; margin: 0 auto;
+  }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  @media (min-width: 960px) {
+    main { grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr); align-items: start; }
+  }
+  section.panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; min-width: 0;
+  }
+  section.panel h2 { font-size: 16px; margin: 0 0 10px; font-weight: 600; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  button {
+    font: inherit; color: var(--fg); background: var(--btn); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px; cursor: pointer;
+  }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .toggle[aria-pressed="mixed"] { opacity: 0.7; }
+  details { margin-top: 10px; }
+  details > summary { cursor: pointer; color: var(--muted); padding: 4px 0; }
+  details .body { padding: 8px 0 2px; display: flex; flex-direction: column; gap: 10px; }
+  label.slider { display: grid; grid-template-columns: 5.5em minmax(0, 1fr) 4.5em; align-items: center; gap: 8px; }
+  label.slider input[type=range] { width: 100%; min-width: 0; }
+  input[type=text] {
+    font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; min-width: 0; flex: 1 1 160px;
+  }
+
+  /* カメラ */
+  .cam-wrap {
+    position: relative; width: 100%; aspect-ratio: 4 / 3; background: var(--cam-bg);
+    border-radius: 8px; overflow: hidden;
+  }
+  .cam-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .overlay {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: var(--overlay); color: var(--overlay-fg); font-weight: 600; text-align: center;
+    padding: 12px;
+  }
+  .overlay[hidden] { display: none; }
+  .cam-info { margin-top: 6px; }
+
+  /* 駆動 */
+  .pad-wrap { position: relative; max-width: 300px; margin: 0 auto; }
+  #drive-pad {
+    display: grid; grid-template-columns: repeat(3, minmax(64px, 1fr)); gap: 8px;
+    touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  }
+  #drive-pad button {
+    min-height: 72px; min-width: 64px; font-size: 14px; padding: 4px; touch-action: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  }
+  #drive-pad button .arrow { font-size: 22px; line-height: 1; }
+  #drive-pad button.active { background: var(--btn-active); border-color: var(--accent); }
+  #drive-pad button.stop { color: var(--err); font-weight: 600; }
+  .pad-wrap .overlay { border-radius: 8px; }
+  .drive-status { margin-top: 10px; }
+
+  /* 駆動ソース */
+  .segment { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .segment button { border: 0; border-radius: 0; padding: 10px 8px; }
+  .segment button + button { border-left: 1px solid var(--border); }
+  .segment button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+  .joy-row { display: flex; gap: 14px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  #joy-canvas { width: 96px; height: 96px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); flex: 0 0 auto; }
+  .kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; }
+  .notice {
+    margin-top: 10px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--warn); color: var(--warn);
+  }
+  .notice[hidden] { display: none; }
+
+  /* 音声 */
+  #heard-list {
+    list-style: none; margin: 8px 0 0; padding: 0; max-height: 280px; overflow-y: auto;
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  #heard-list li { padding: 4px 10px; border-bottom: 1px solid var(--border); white-space: pre-wrap; word-break: break-word; }
+  #heard-list li:last-child { border-bottom: 0; }
+  #heard-list:empty::before { content: "まだ認識結果はありません"; display: block; padding: 6px 10px; color: var(--muted); font-size: 13px; }
+  .stt-state.ready { color: var(--ok); }
+  .stt-state.loading { color: var(--warn); }
+  .stt-state.error { color: var(--err); }
+  .tag {
+    display: inline-block; padding: 0 6px; margin-right: 6px; border-radius: 4px; font-size: 12px;
+    border: 1px solid var(--accent); color: var(--accent); white-space: nowrap; vertical-align: 1px;
+  }
+
+  /* VLM */
+  .vlm-state.ready { color: var(--ok); }
+  .vlm-state.unavailable { color: var(--err); }
+  .vlm-state.off { color: var(--muted); }
+  #vlm-voice-hint { margin-top: 6px; }
+  #vlm-voice-hint[hidden] { display: none; }
+  #vlm-log {
+    list-style: none; margin: 10px 0 0; padding: 8px; max-height: 420px; overflow-y: auto;
+    border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; gap: 8px;
+  }
+  #vlm-log:empty::before { content: "まだ質問はありません"; display: block; padding: 2px 4px; color: var(--muted); font-size: 13px; }
+  .vlm-q, .vlm-a {
+    max-width: 92%; padding: 6px 10px; border-radius: 10px; white-space: pre-wrap; word-break: break-word;
+  }
+  .vlm-q { align-self: flex-end; background: var(--btn-active); }
+  .vlm-a { align-self: flex-start; background: var(--btn); display: flex; gap: 10px; align-items: flex-start; }
+  .vlm-a .text { min-width: 0; flex: 1 1 auto; }
+  .vlm-a .text.err { color: var(--err); font-weight: 600; }
+  .vlm-a .thinking { color: var(--muted); }
+  .vlm-a .meta { margin-top: 2px; }
+  .vlm-a img {
+    width: 80px; height: 60px; object-fit: cover; border-radius: 6px; cursor: zoom-in; flex: 0 0 auto;
+    background: var(--cam-bg);
+  }
+  #vlm-frame-view {
+    position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+    background: var(--overlay); padding: 16px; cursor: zoom-out;
+  }
+  #vlm-frame-view[hidden] { display: none; }
+  #vlm-frame-view img { max-width: 100%; max-height: 100%; border-radius: 8px; background: var(--cam-bg); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Open StackChan Move</h1>
+  <span id="conn-badge" class="badge warn">再接続中…</span>
+</header>
+
+<main>
+  <div class="col">
+    <!-- カメラ -->
+    <section class="panel" id="panel-camera">
+      <h2>カメラ</h2>
+      <div class="cam-wrap">
+        <img id="cam" alt="ロボットのカメラ映像">
+        <div id="cam-empty" class="overlay">映像が届いていません</div>
+      </div>
+      <div class="cam-info row small muted mono">
+        <span>受信 <span id="cam-fps">—</span> fps</span>
+        <span>経過 <span id="cam-age">—</span> 秒</span>
+        <span>サイズ <span id="cam-size">—</span></span>
+      </div>
+      <details id="cam-settings">
+        <summary>映像の設定</summary>
+        <div class="body">
+          <div class="row">
+            <button type="button" id="cam-on-toggle" class="toggle" aria-pressed="mixed">配信</button>
+            <button type="button" id="cam-auto-toggle" class="toggle" aria-pressed="mixed">自動調整</button>
+          </div>
+          <label class="slider"><span>fps</span><input type="range" id="cam-fps-range" min="1" max="10" step="1" value="5"><span id="cam-fps-val" class="mono">—</span></label>
+          <label class="slider"><span>画質</span><input type="range" id="cam-quality-range" min="10" max="90" step="1" value="60"><span id="cam-quality-val" class="mono">—</span></label>
+          <div class="small muted">ロボット側の送信: <span id="cam-hub-info" class="mono">—</span></div>
+        </div>
+      </details>
+    </section>
+
+    <!-- VLM (カメラの下: 映像を見ながら質問する) -->
+    <section class="panel" id="panel-vlm">
+      <h2>カメラに質問</h2>
+      <div class="row">
+        <span class="small">状態: <span id="vlm-state" class="vlm-state">—</span></span>
+        <span class="small muted">モデル: <span id="vlm-model" class="mono">—</span></span>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button type="button" id="vlm-voice-in-toggle" class="toggle" aria-pressed="mixed">音声で質問</button>
+        <button type="button" id="vlm-voice-out-toggle" class="toggle" aria-pressed="mixed">音声で回答</button>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <input type="text" id="vlm-question" placeholder="カメラに写っているものについて質問" maxlength="500">
+        <button type="button" id="vlm-ask-btn" class="primary">質問</button>
+      </div>
+      <div id="vlm-voice-hint" class="small muted" hidden>ロボットに話しかけると質問になります</div>
+      <ul id="vlm-log"></ul>
+    </section>
+  </div>
+
+  <div class="col">
+    <!-- 駆動 -->
+    <section class="panel" id="panel-drive">
+      <h2>移動</h2>
+      <div class="pad-wrap">
+        <div id="drive-pad">
+          <button type="button" id="pad-fl" data-v="1" data-w="1"><span class="arrow">↖</span>前進左</button>
+          <button type="button" id="pad-f" data-v="1" data-w="0"><span class="arrow">↑</span>前進</button>
+          <button type="button" id="pad-fr" data-v="1" data-w="-1"><span class="arrow">↗</span>前進右</button>
+          <button type="button" id="pad-l" data-v="0" data-w="1"><span class="arrow">↺</span>左旋回</button>
+          <button type="button" id="pad-stop" class="stop" data-stop="1"><span class="arrow">■</span>停止</button>
+          <button type="button" id="pad-r" data-v="0" data-w="-1"><span class="arrow">↻</span>右旋回</button>
+          <button type="button" id="pad-bl" data-v="-1" data-w="1"><span class="arrow">↙</span>後退左</button>
+          <button type="button" id="pad-b" data-v="-1" data-w="0"><span class="arrow">↓</span>後退</button>
+          <button type="button" id="pad-br" data-v="-1" data-w="-1"><span class="arrow">↘</span>後退右</button>
+        </div>
+        <div id="pad-lock" class="overlay" hidden>コントローラで操作中</div>
+      </div>
+      <div style="margin-top:12px; display:flex; flex-direction:column; gap:6px;">
+        <label class="slider"><span>前後の速さ</span><input type="range" id="speed-v" min="0" max="0.15" step="0.005" value="0.09"><span id="speed-v-val" class="mono">0.090</span></label>
+        <label class="slider"><span>旋回の速さ</span><input type="range" id="speed-w" min="0" max="2" step="0.05" value="1.2"><span id="speed-w-val" class="mono">1.20</span></label>
+      </div>
+      <div class="drive-status small mono">
+        <div>指令: <span id="drive-cmd">—</span></div>
+        <div>速度: <span id="drive-vel">—</span></div>
+      </div>
+      <div class="small muted" style="margin-top:6px;">キーボード: W/S・↑/↓ で前後、A/D・←/→ で左右、Q/E でその場旋回、Space で停止</div>
+    </section>
+
+    <!-- 駆動ソース -->
+    <section class="panel" id="panel-source">
+      <h2>操作の切替</h2>
+      <div class="segment" role="group" aria-label="操作の切替">
+        <button type="button" id="src-hub" aria-pressed="false">Web で操作</button>
+        <button type="button" id="src-joy" aria-pressed="false">コントローラで操作</button>
+      </div>
+      <div class="joy-row">
+        <canvas id="joy-canvas" width="96" height="96" aria-label="スティック位置"></canvas>
+        <div class="kv small">
+          <span class="muted">リンク</span><span id="joy-link" class="mono">—</span>
+          <span class="muted">ボタン</span><span id="joy-btn">—</span>
+          <span class="muted">最終受信</span><span id="joy-age" class="mono">—</span>
+        </div>
+      </div>
+      <div id="estop-notice" class="notice" hidden>コントローラのボタンで停止しました</div>
+      <p class="small muted" style="margin:10px 0 0;">コントローラで操作に切り替えると、ロボットはコントローラの指示だけで動きます。コントローラのボタンを押すと止まり、Web の操作に戻ります。</p>
+    </section>
+
+    <!-- 音声 -->
+    <section class="panel" id="panel-audio">
+      <h2>音声</h2>
+      <div class="row">
+        <button type="button" id="listen-toggle" class="toggle" aria-pressed="mixed">音声認識</button>
+        <span class="small">認識エンジン: <span id="stt-state" class="stt-state">—</span></span>
+        <span id="stt-reason" class="small muted"></span>
+      </div>
+      <div id="listen-off-notice" class="notice" hidden>音声認識はオフです</div>
+      <div class="row" style="margin-top:10px; justify-content:space-between;">
+        <span class="small muted">認識結果 (新しい順)</span>
+        <button type="button" id="heard-clear">クリア</button>
+      </div>
+      <ul id="heard-list"></ul>
+      <details id="speak-details">
+        <summary>ロボットに話させる</summary>
+        <div class="body">
+          <div class="row">
+            <input type="text" id="speak-text" placeholder="話させる文章" maxlength="500">
+            <button type="button" id="speak-btn" class="primary">話す</button>
+          </div>
+          <div class="small">音声合成: <span id="tts-status">—</span></div>
+          <div class="row">
+            <button type="button" id="mouth-toggle" class="toggle" aria-pressed="mixed">口パク</button>
+          </div>
+        </div>
+      </details>
+    </section>
+  </div>
+</main>
+
+<div id="vlm-frame-view" hidden><img id="vlm-frame-img" alt="質問に使った画像"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const DRIVE_INTERVAL_MS = 100;
+  const RECONNECT_DELAYS_S = [1, 2, 4, 8, 10];
+  const CAM_STALE_MS = 2000;
+  const CAM_FPS_WINDOW_MS = 2000;
+  const STATUS_POLL_MS = 2000;
+  const HEARD_MAX = 200;
+  const ESTOP_SHOW_MS = 5000;
+  const STATUS_RENDER_MS = 100;
+  const VLM_LOG_MAX = 50;
+
+  // ===== Hub から届いた状態 (表示はこれだけを真実とする) =====
+  const hub = {
+    listening: null,     // true | false | null(不明)
+    mouth: null,
+    driveSource: null,   // "hub" | "joystick" | null
+    stt: null,           // "loading" | "ready" | "error" | "off" | null
+    sttStatus: null,     // GET /status の audio.stt
+    vlm: null,           // "ready" | "unavailable" | "off" | null
+    vlmVoiceIn: null,    // true | false | null
+    vlmVoiceOut: null,
+  };
+
+  // ===== WebSocket =====
+  let ws = null;
+  let reconnectAttempt = 0;
+  let reconnectTimer = null;
+
+  function send(obj) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    ws.send(JSON.stringify(obj));
+    return true;
+  }
+
+  function setBadge(connected) {
+    const b = $("conn-badge");
+    b.textContent = connected ? "接続中" : "再接続中…";
+    b.className = "badge " + (connected ? "on" : "warn");
+  }
+
+  function connect() {
+    const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/app`;
+    try {
+      ws = new WebSocket(url);
+    } catch (err) {
+      scheduleReconnect();
+      return;
+    }
+    ws.binaryType = "arraybuffer";
+    ws.onopen = () => {
+      reconnectAttempt = 0;
+      setBadge(true);
+      pollStatus();
+    };
+    ws.onclose = () => {
+      setBadge(false);
+      clearHeldDrive();
+      scheduleReconnect();
+    };
+    ws.onerror = () => { /* close が続いて呼ばれる */ };
+    ws.onmessage = (ev) => {
+      if (typeof ev.data === "string") {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch (err) { return; }
+        handleText(msg);
+      } else if (ev.data instanceof ArrayBuffer) {
+        handleBinary(ev.data);
+      }
+    };
+  }
+
+  function scheduleReconnect() {
+    if (reconnectTimer) return;
+    const idx = Math.min(reconnectAttempt, RECONNECT_DELAYS_S.length - 1);
+    const delay = RECONNECT_DELAYS_S[idx] * 1000;
+    reconnectAttempt++;
+    reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, delay);
+  }
+
+  function handleText(msg) {
+    if (!msg || typeof msg !== "object") return;
+    switch (msg.type) {
+      case "state": onState(String(msg.value || "")); break;
+      case "odom": onOdom(msg); break;
+      case "joy": onJoy(msg); break;
+      case "event": onEvent(msg); break;
+      case "heard": onHeard(msg); break;
+      case "vlm_query": onVlmQuery(msg); break;
+      case "vlm_answer": onVlmAnswer(msg); break;
+      default: break;
+    }
+  }
+
+  function onState(value) {
+    if (value.startsWith("listening:")) {
+      hub.listening = value.slice(10) === "on";
+      renderListen();
+    } else if (value.startsWith("anim:mouth:")) {
+      hub.mouth = value.slice(11) === "on";
+      setToggle($("mouth-toggle"), hub.mouth);
+    } else if (value.startsWith("drive_source:")) {
+      hub.driveSource = value.slice(13);
+      renderDriveSource();
+    } else if (value.startsWith("stt:")) {
+      hub.stt = value.slice(4);
+      renderStt();
+    } else if (value.startsWith("vlm:")) {
+      hub.vlm = value.slice(4);
+      renderVlmState();
+    } else if (value.startsWith("vlm_voice_in:")) {
+      hub.vlmVoiceIn = value.slice(13) === "on";
+      renderVlmVoice();
+    } else if (value.startsWith("vlm_voice_out:")) {
+      hub.vlmVoiceOut = value.slice(14) === "on";
+      renderVlmVoice();
+    }
+  }
+
+  function setToggle(el, on) {
+    el.setAttribute("aria-pressed", on === null ? "mixed" : (on ? "true" : "false"));
+  }
+
+  // ===== カメラ =====
+  const cam = {
+    url: null,          // 現在表示中の Object URL
+    busy: false,        // デコード中
+    pending: null,      // デコード中に届いた最新フレーム (1 枚だけ保持)
+    lastArrival: 0,
+    arrivals: [],
+    lastSize: 0,
+  };
+
+  function handleBinary(buf) {
+    if (buf.byteLength < 5) return;
+    const dv = new DataView(buf);
+    const kind = dv.getUint8(0);
+    if (kind !== 0x02) return;
+    const payload = new Uint8Array(buf, 5);
+    const now = performance.now();
+    cam.lastArrival = now;
+    cam.lastSize = payload.byteLength;
+    cam.arrivals.push(now);
+    pruneArrivals(now);
+    if (cam.busy) {
+      cam.pending = payload;
+    } else {
+      drawFrame(payload);
+    }
+  }
+
+  function pruneArrivals(now) {
+    const cutoff = now - CAM_FPS_WINDOW_MS;
+    while (cam.arrivals.length && cam.arrivals[0] < cutoff) cam.arrivals.shift();
+  }
+
+  function drawFrame(bytes) {
+    cam.busy = true;
+    const img = $("cam");
+    const url = URL.createObjectURL(new Blob([bytes], { type: "image/jpeg" }));
+    const prev = cam.url;
+    cam.url = url;
+    const done = () => {
+      img.onload = null;
+      img.onerror = null;
+      if (prev) URL.revokeObjectURL(prev);
+      cam.busy = false;
+      if (cam.pending) {
+        const next = cam.pending;
+        cam.pending = null;
+        drawFrame(next);
+      }
+    };
+    img.onload = done;
+    img.onerror = done;
+    img.src = url;
+  }
+
+  function formatSize(n) {
+    if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(2) + " MB";
+    if (n >= 1024) return (n / 1024).toFixed(1) + " KB";
+    return n + " B";
+  }
+
+  function renderCamInfo() {
+    const now = performance.now();
+    pruneArrivals(now);
+    const stale = !cam.lastArrival || now - cam.lastArrival >= CAM_STALE_MS;
+    $("cam-empty").hidden = !stale;
+    if (!cam.lastArrival) return;
+    const n = cam.arrivals.length;
+    let fps = 0;
+    if (n >= 2) fps = (n - 1) / ((cam.arrivals[n - 1] - cam.arrivals[0]) / 1000);
+    $("cam-fps").textContent = stale ? "0.0" : fps.toFixed(1);
+    $("cam-age").textContent = ((now - cam.lastArrival) / 1000).toFixed(1);
+    $("cam-size").textContent = formatSize(cam.lastSize);
+  }
+
+  // 映像の設定 (現在値は GET /status の camera)
+  let camSliderActive = { fps: false, quality: false };
+
+  function renderCameraStatus(c) {
+    if (!c || typeof c !== "object") return;
+    setToggle($("cam-on-toggle"), typeof c.on === "boolean" ? c.on : null);
+    setToggle($("cam-auto-toggle"), typeof c.auto === "boolean" ? c.auto : null);
+    if (typeof c.fps === "number") {
+      $("cam-fps-val").textContent = String(c.fps);
+      if (!camSliderActive.fps) $("cam-fps-range").value = String(c.fps);
+    }
+    if (typeof c.quality === "number") {
+      $("cam-quality-val").textContent = String(c.quality);
+      if (!camSliderActive.quality) $("cam-quality-range").value = String(c.quality);
+    }
+    const parts = [];
+    if (typeof c.fps_measured === "number") parts.push(c.fps_measured.toFixed(1) + " fps");
+    if (typeof c.last_frame_age_s === "number") parts.push("経過 " + c.last_frame_age_s.toFixed(1) + " 秒");
+    if (typeof c.seq === "number") parts.push("#" + c.seq);
+    $("cam-hub-info").textContent = parts.length ? parts.join(" / ") : "—";
+  }
+
+  $("cam-on-toggle").addEventListener("click", () => {
+    const cur = $("cam-on-toggle").getAttribute("aria-pressed") === "true";
+    send({ type: "control", command: "camera", params: { on: !cur } });
+    setTimeout(pollStatus, 300);
+  });
+  $("cam-auto-toggle").addEventListener("click", () => {
+    const cur = $("cam-auto-toggle").getAttribute("aria-pressed") === "true";
+    send({ type: "control", command: "camera", params: { auto: !cur } });
+    setTimeout(pollStatus, 300);
+  });
+  function bindCamSlider(id, key) {
+    const el = $(id);
+    el.addEventListener("pointerdown", () => { camSliderActive[key] = true; });
+    el.addEventListener("focus", () => { camSliderActive[key] = true; });
+    el.addEventListener("blur", () => { camSliderActive[key] = false; });
+    el.addEventListener("change", () => {
+      camSliderActive[key] = false;
+      const params = {};
+      params[key] = Number(el.value);
+      send({ type: "control", command: "camera", params: params });
+      setTimeout(pollStatus, 300);
+    });
+  }
+  bindCamSlider("cam-fps-range", "fps");
+  bindCamSlider("cam-quality-range", "quality");
+
+  // ===== 駆動 =====
+  const DRIVE_KEYS = new Set(["w", "s", "a", "d", "q", "e", "arrowup", "arrowdown", "arrowleft", "arrowright"]);
+  const heldKeys = new Set();
+  let pointerHeld = null;    // { v, w, el }
+  let driveTimer = null;
+  let limits = { max_v: 0.15, max_w: 2.0 };
+  let limitsApplied = false;
+
+  function driveLocked() { return hub.driveSource === "joystick"; }
+
+  function sendDrive(v, w) {
+    send({ type: "control", command: "drive", params: { v: v, w: w } });
+  }
+
+  function keyboardDir() {
+    let dv = 0, dw = 0;
+    if (heldKeys.has("w") || heldKeys.has("arrowup")) dv += 1;
+    if (heldKeys.has("s") || heldKeys.has("arrowdown")) dv -= 1;
+    // 左は常に +w (v の符号に依らない)
+    if (heldKeys.has("a") || heldKeys.has("arrowleft") || heldKeys.has("q")) dw += 1;
+    if (heldKeys.has("d") || heldKeys.has("arrowright") || heldKeys.has("e")) dw -= 1;
+    // Q/E は超信地旋回 (前後キーと同時でも並進しない)
+    if (heldKeys.has("q") || heldKeys.has("e")) dv = 0;
+    return { v: dv, w: dw };
+  }
+
+  function currentDir() {
+    if (pointerHeld) return { v: pointerHeld.v, w: pointerHeld.w };
+    if (heldKeys.size > 0) return keyboardDir();
+    return null;
+  }
+
+  function driveTick() {
+    const d = currentDir();
+    if (!d) { stopDriveLoop(true); return; }
+    sendDrive(d.v * Number($("speed-v").value), d.w * Number($("speed-w").value));
+  }
+
+  function startDriveLoop() {
+    driveTick();
+    if (!driveTimer) driveTimer = setInterval(driveTick, DRIVE_INTERVAL_MS);
+  }
+
+  function stopDriveLoop(sendZero) {
+    const wasRunning = !!driveTimer;
+    if (driveTimer) { clearInterval(driveTimer); driveTimer = null; }
+    if (sendZero && wasRunning) sendDrive(0, 0);
+  }
+
+  function refreshDrive() {
+    if (currentDir() && !driveLocked()) startDriveLoop();
+    else stopDriveLoop(true);
+    highlightPad();
+  }
+
+  function highlightPad() {
+    const d = currentDir();
+    document.querySelectorAll("#drive-pad button").forEach((b) => {
+      const on = !!d && !b.dataset.stop && Number(b.dataset.v) === d.v && Number(b.dataset.w) === d.w;
+      b.classList.toggle("active", on);
+    });
+  }
+
+  function stopNow() {
+    heldKeys.clear();
+    pointerHeld = null;
+    stopDriveLoop(false);
+    if (!driveLocked()) sendDrive(0, 0);
+    highlightPad();
+  }
+
+  function clearHeldDrive() {
+    // 送信せずに押下状態だけを捨てる (切断時・コントローラ操作への切替時)
+    heldKeys.clear();
+    pointerHeld = null;
+    stopDriveLoop(false);
+    highlightPad();
+  }
+
+  document.querySelectorAll("#drive-pad button").forEach((btn) => {
+    btn.addEventListener("pointerdown", (e) => {
+      if (btn.disabled || driveLocked()) return;
+      e.preventDefault();
+      try { btn.setPointerCapture(e.pointerId); } catch (err) { /* 無視 */ }
+      if (btn.dataset.stop) { stopNow(); return; }
+      pointerHeld = { v: Number(btn.dataset.v), w: Number(btn.dataset.w), el: btn };
+      refreshDrive();
+    });
+    const release = (e) => {
+      if (!pointerHeld || pointerHeld.el !== btn) return;
+      try { btn.releasePointerCapture(e.pointerId); } catch (err) { /* 無視 */ }
+      pointerHeld = null;
+      refreshDrive();
+    };
+    btn.addEventListener("pointerup", release);
+    btn.addEventListener("pointercancel", release);
+    btn.addEventListener("lostpointercapture", release);
+    btn.addEventListener("contextmenu", (e) => e.preventDefault());
+  });
+
+  // 保険: どの離し方でも停止を送る
+  const releaseAll = () => {
+    if (pointerHeld || heldKeys.size) {
+      pointerHeld = null;
+      heldKeys.clear();
+      refreshDrive();
+    }
+  };
+  window.addEventListener("pointerup", () => { if (pointerHeld) { pointerHeld = null; refreshDrive(); } });
+  window.addEventListener("pointercancel", () => { if (pointerHeld) { pointerHeld = null; refreshDrive(); } });
+  window.addEventListener("blur", releaseAll);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") releaseAll(); });
+
+  function isTyping(target) {
+    if (!target) return false;
+    const tag = (target.tagName || "").toLowerCase();
+    return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable === true;
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (isTyping(e.target)) return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (driveLocked()) return;
+    const k = (e.key || "").toLowerCase();
+    if (k === " " || e.code === "Space") {
+      e.preventDefault();
+      if (!e.repeat) stopNow();
+      return;
+    }
+    if (!DRIVE_KEYS.has(k)) return;
+    e.preventDefault();
+    if (e.repeat || heldKeys.has(k)) return;
+    heldKeys.add(k);
+    refreshDrive();
+  });
+
+  window.addEventListener("keyup", (e) => {
+    const k = (e.key || "").toLowerCase();
+    if (!heldKeys.has(k)) return;
+    heldKeys.delete(k);
+    refreshDrive();
+  });
+
+  // 速度スライダ
+  function renderSpeedVals() {
+    $("speed-v-val").textContent = Number($("speed-v").value).toFixed(3);
+    $("speed-w-val").textContent = Number($("speed-w").value).toFixed(2);
+  }
+  $("speed-v").addEventListener("input", renderSpeedVals);
+  $("speed-w").addEventListener("input", renderSpeedVals);
+
+  function applyLimits(l) {
+    if (!l || typeof l.max_v !== "number" || typeof l.max_w !== "number") return;
+    const changed = l.max_v !== limits.max_v || l.max_w !== limits.max_w;
+    if (limitsApplied && !changed) return;
+    limits = { max_v: l.max_v, max_w: l.max_w };
+    const sv = $("speed-v"), sw = $("speed-w");
+    sv.max = String(limits.max_v);
+    sv.step = String(limits.max_v / 100);
+    sw.max = String(limits.max_w);
+    sw.step = String(limits.max_w / 100);
+    sv.value = String(limits.max_v * 0.6);
+    sw.value = String(limits.max_w * 0.6);
+    limitsApplied = true;
+    renderSpeedVals();
+  }
+
+  // 状態行 (≤ 10 Hz に間引き)
+  let lastOdom = null;
+  let odomDirty = false;
+
+  function onOdom(msg) {
+    lastOdom = msg;
+    odomDirty = true;
+  }
+
+  function fmt(x, digits) {
+    return typeof x === "number" && isFinite(x) ? x.toFixed(digits) : "—";
+  }
+
+  function renderOdom() {
+    if (!odomDirty || !lastOdom) return;
+    odomDirty = false;
+    const c = lastOdom.cmd || {};
+    $("drive-cmd").textContent = `v=${fmt(c.v, 2)} w=${fmt(c.w, 2)} src=${c.src != null ? String(c.src) : "—"}`;
+    $("drive-vel").textContent = `v=${fmt(lastOdom.v, 3)} m/s  w=${fmt(lastOdom.w, 2)} rad/s`;
+  }
+
+  // ===== 駆動ソース =====
+  function renderDriveSource() {
+    const src = hub.driveSource;
+    $("src-hub").setAttribute("aria-pressed", src === "hub" ? "true" : "false");
+    $("src-joy").setAttribute("aria-pressed", src === "joystick" ? "true" : "false");
+    const locked = driveLocked();
+    $("pad-lock").hidden = !locked;
+    document.querySelectorAll("#drive-pad button").forEach((b) => { b.disabled = locked; });
+    if (locked) clearHeldDrive();
+  }
+
+  $("src-hub").addEventListener("click", () => {
+    send({ type: "control", command: "drive_source", params: { source: "hub" } });
+  });
+  $("src-joy").addEventListener("click", () => {
+    clearHeldDrive();
+    send({ type: "control", command: "drive_source", params: { source: "joystick" } });
+  });
+
+  const joy = { x: NaN, y: NaN, btn: null, last: 0 };
+
+  function onJoy(msg) {
+    joy.x = Number(msg.x);
+    joy.y = Number(msg.y);
+    joy.btn = !!msg.btn;
+    joy.last = performance.now();
+    $("joy-btn").textContent = joy.btn ? "押下中" : "離している";
+    drawJoy();
+  }
+
+  function drawJoy() {
+    const cv = $("joy-canvas");
+    const ctx = cv.getContext("2d");
+    const w = cv.width, h = cv.height, cx = w / 2, cy = h / 2, r = w / 2 - 8;
+    const cs = getComputedStyle(document.documentElement);
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = cs.getPropertyValue("--border").trim() || "#888";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r); ctx.stroke();
+    if (!isFinite(joy.x) || !isFinite(joy.y)) return;
+    const clamp = (v) => Math.max(-1, Math.min(1, v));
+    const px = cx + clamp(joy.x) * r;
+    const py = cy - clamp(joy.y) * r;   // y 上 = 前進
+    ctx.fillStyle = joy.btn ? (cs.getPropertyValue("--err").trim() || "#c33") : (cs.getPropertyValue("--accent").trim() || "#36c");
+    ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function renderJoyAge() {
+    $("joy-age").textContent = joy.last ? ((performance.now() - joy.last) / 1000).toFixed(1) + " 秒前" : "—";
+  }
+
+  let estopTimer = null;
+
+  function onEvent(msg) {
+    const name = String(msg.name || "");
+    const detail = msg.detail != null ? String(msg.detail) : "";
+    if (name === "joy_link") {
+      const parts = detail.trim().split(/\s+/);
+      if (parts[0] === "up") {
+        $("joy-link").textContent = "接続 " + (parts.slice(1).join(" ") || "");
+      } else if (parts[0] === "down") {
+        $("joy-link").textContent = "切断";
+      } else {
+        $("joy-link").textContent = detail || "—";
+      }
+    } else if (name === "estop") {
+      const n = $("estop-notice");
+      n.hidden = false;
+      if (estopTimer) clearTimeout(estopTimer);
+      estopTimer = setTimeout(() => { n.hidden = true; estopTimer = null; }, ESTOP_SHOW_MS);
+    }
+  }
+
+  // ===== 音声 =====
+  const STT_LABELS = { loading: "準備中…", ready: "使用可能", error: "エラー", off: "無効" };
+
+  function renderListen() {
+    setToggle($("listen-toggle"), hub.listening);
+    $("listen-off-notice").hidden = hub.listening !== false;
+  }
+
+  function renderStt() {
+    const el = $("stt-state");
+    const s = hub.stt;
+    el.textContent = s && STT_LABELS[s] ? STT_LABELS[s] : (s || "—");
+    el.className = "stt-state " + (s || "");
+    let reason = "";
+    if ((s === "off" || s === "error") && hub.sttStatus && typeof hub.sttStatus === "object") {
+      const st = hub.sttStatus;
+      if (st.error) reason = String(st.error);
+      else reason = `プラグイン: ${st.plugin != null ? String(st.plugin) : "—"} / 状態: ${st.state != null ? String(st.state) : "—"}`;
+    }
+    $("stt-reason").textContent = reason;
+  }
+
+  $("listen-toggle").addEventListener("click", () => {
+    send({ type: "control", command: "listen", params: { on: hub.listening !== true } });
+  });
+
+  $("mouth-toggle").addEventListener("click", () => {
+    send({ type: "control", command: "anim", params: { mouth: hub.mouth !== true } });
+  });
+
+  function pad2(n) { return String(n).padStart(2, "0"); }
+
+  function onHeard(msg) {
+    const text = msg.text != null ? String(msg.text) : "";
+    if (!text) return;
+    const d = new Date();
+    const li = document.createElement("li");
+    li.textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}  `;
+    if (msg.intent === "vlm") {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "VLM へ";
+      li.appendChild(tag);
+    }
+    li.appendChild(document.createTextNode(text));
+    const list = $("heard-list");
+    list.insertBefore(li, list.firstChild);
+    while (list.children.length > HEARD_MAX) list.removeChild(list.lastChild);
+  }
+
+  $("heard-clear").addEventListener("click", () => {
+    const list = $("heard-list");
+    while (list.firstChild) list.removeChild(list.firstChild);
+  });
+
+  function speak() {
+    const text = $("speak-text").value.trim();
+    if (!text) return;
+    send({ type: "speak", text: text });
+  }
+  $("speak-btn").addEventListener("click", speak);
+  $("speak-text").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); speak(); }
+  });
+
+  function renderTts(t) {
+    const el = $("tts-status");
+    if (!t || typeof t !== "object") { el.textContent = "—"; return; }
+    const parts = [];
+    parts.push(t.ok ? "使用可能" : "使用不可");
+    if (t.speaker_name) parts.push("話者: " + String(t.speaker_name));
+    if (t.message) parts.push(String(t.message));
+    el.textContent = parts.join(" / ");
+  }
+
+  // ===== VLM (カメラに質問) =====
+  const VLM_STATE_LABELS = { ready: "使用可能", unavailable: "接続できません", off: "無効" };
+  const VLM_ERROR_LABELS = {
+    no_frame: "カメラの画像が届いていません",
+    unavailable: "VLM に接続できません",
+    timeout: "時間内に答えられませんでした",
+    busy: "質問が混み合っています。少し待ってから質問してください",
+    invalid: "質問が空か、長すぎます (500 文字まで)",
+  };
+  const vlmEntries = new Map();   // id → 回答の吹き出し要素
+
+  function renderVlmState() {
+    const el = $("vlm-state");
+    const s = hub.vlm;
+    el.textContent = s && VLM_STATE_LABELS[s] ? VLM_STATE_LABELS[s] : (s || "—");
+    el.className = "vlm-state " + (s || "");
+  }
+
+  function renderVlmVoice() {
+    setToggle($("vlm-voice-in-toggle"), hub.vlmVoiceIn);
+    setToggle($("vlm-voice-out-toggle"), hub.vlmVoiceOut);
+    $("vlm-voice-hint").hidden = hub.vlmVoiceIn !== true;
+  }
+
+  $("vlm-voice-in-toggle").addEventListener("click", () => {
+    send({ type: "control", command: "vlm_voice", params: { input: hub.vlmVoiceIn !== true } });
+  });
+  $("vlm-voice-out-toggle").addEventListener("click", () => {
+    send({ type: "control", command: "vlm_voice", params: { output: hub.vlmVoiceOut !== true } });
+  });
+
+  function askVlm() {
+    const el = $("vlm-question");
+    const question = el.value.trim();
+    if (!question) return;
+    // 送信中もキューに積めるよう、ボタンは無効化しない。
+    if (send({ type: "vlm_ask", question: question })) el.value = "";
+  }
+  $("vlm-ask-btn").addEventListener("click", askVlm);
+  $("vlm-question").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); askVlm(); }
+  });
+
+  function vlmSourceLabel(source) { return source === "voice" ? "音声" : "テキスト"; }
+
+  function trimVlmLog() {
+    const log = $("vlm-log");
+    // 質問と回答の 2 行で 1 件。古いものから捨てる。
+    while (log.children.length > VLM_LOG_MAX * 2) {
+      const first = log.firstChild;
+      if (first.dataset.id) vlmEntries.delete(first.dataset.id);
+      log.removeChild(first);
+    }
+  }
+
+  function addVlmEntry(id, question, source) {
+    const log = $("vlm-log");
+    const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+    const q = document.createElement("li");
+    q.className = "vlm-q";
+    const tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = vlmSourceLabel(source);
+    q.appendChild(tag);
+    q.appendChild(document.createTextNode(question));
+    const a = document.createElement("li");
+    a.className = "vlm-a";
+    a.dataset.id = String(id);
+    const text = document.createElement("div");
+    text.className = "text thinking";
+    text.textContent = "考え中…";
+    a.appendChild(text);
+    log.appendChild(q);
+    log.appendChild(a);
+    vlmEntries.set(String(id), a);
+    trimVlmLog();
+    if (atBottom) log.scrollTop = log.scrollHeight;
+    return a;
+  }
+
+  function onVlmQuery(msg) {
+    const id = String(msg.id);
+    if (vlmEntries.has(id)) return;
+    addVlmEntry(id, msg.question != null ? String(msg.question) : "", msg.source);
+  }
+
+  function onVlmAnswer(msg) {
+    const id = String(msg.id);
+    // busy / invalid は vlm_query 無しで届く。
+    const a = vlmEntries.get(id) || addVlmEntry(id, msg.question != null ? String(msg.question) : "", msg.source);
+    while (a.firstChild) a.removeChild(a.firstChild);
+    const body = document.createElement("div");
+    body.className = "text";
+    const main = document.createElement("div");
+    if (msg.error) {
+      main.className = "err";
+      main.textContent = VLM_ERROR_LABELS[msg.error] || ("エラー: " + String(msg.error));
+      body.classList.add("err");
+    } else {
+      main.textContent = msg.answer != null ? String(msg.answer) : "";
+    }
+    body.appendChild(main);
+    const meta = [];
+    if (typeof msg.ms === "number") meta.push(Math.round(msg.ms) + " ms");
+    if (msg.spoken) meta.push("読み上げ済み");
+    if (meta.length) {
+      const m = document.createElement("div");
+      m.className = "meta small muted";
+      m.textContent = meta.join(" / ");
+      body.appendChild(m);
+    }
+    a.appendChild(body);
+    if (msg.frame_seq != null) {
+      const img = document.createElement("img");
+      img.alt = "質問に使った画像";
+      img.src = "/vlm/frame/" + encodeURIComponent(id);
+      img.addEventListener("click", () => openVlmFrame(img.src));
+      img.addEventListener("error", () => { img.remove(); });
+      a.appendChild(img);
+    }
+    const log = $("vlm-log");
+    if (log.scrollHeight - log.scrollTop - log.clientHeight < 200) log.scrollTop = log.scrollHeight;
+  }
+
+  function openVlmFrame(src) {
+    $("vlm-frame-img").src = src;
+    $("vlm-frame-view").hidden = false;
+  }
+  $("vlm-frame-view").addEventListener("click", () => { $("vlm-frame-view").hidden = true; });
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") $("vlm-frame-view").hidden = true;
+  });
+
+  function renderVlmStatus(v) {
+    if (!v || typeof v !== "object") return;
+    $("vlm-model").textContent = v.model != null ? String(v.model) : "—";
+    if (hub.vlm === null && typeof v.state === "string") {
+      hub.vlm = v.state;
+      renderVlmState();
+    }
+  }
+
+  // ===== GET /status (2 s ごと) =====
+  let polling = false;
+
+  async function pollStatus() {
+    if (polling) return;
+    polling = true;
+    try {
+      const res = await fetch("/status", { cache: "no-store" });
+      if (!res.ok) return;
+      const st = await res.json();
+      applyLimits(st.limits);
+      renderCameraStatus(st.camera);
+      if (st.audio) {
+        hub.sttStatus = st.audio.stt || null;
+        renderStt();
+        renderTts(st.audio.tts);
+      }
+      renderVlmStatus(st.vlm);
+    } catch (err) {
+      /* 次の周期で再試行 */
+    } finally {
+      polling = false;
+    }
+  }
+
+  // ===== 起動 =====
+  renderSpeedVals();
+  renderDriveSource();
+  renderListen();
+  renderStt();
+  renderVlmState();
+  renderVlmVoice();
+  drawJoy();
+  setInterval(() => { renderOdom(); }, STATUS_RENDER_MS);
+  setInterval(() => { renderCamInfo(); renderJoyAge(); }, 250);
+  setInterval(pollStatus, STATUS_POLL_MS);
+  connect();
+})();
+</script>
+</body>
+</html>

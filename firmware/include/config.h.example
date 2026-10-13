@@ -1,0 +1,149 @@
+#pragma once
+
+// ---------------------------------------------------------------------------
+// Audio (stackchan_fsr と同一)
+// ---------------------------------------------------------------------------
+#define SAMPLE_RATE 16000
+#define BITS_PER_SAMPLE 16
+#define DMA_BUF_COUNT 4
+#define DMA_BUF_LEN 512
+#define PLAYBACK_BUF_SIZE (256 * 1024)
+#define SPEAK_RX_TIMEOUT_MS 5000  // 発話中に音声がこの時間届かなければ発話を終わったものとみなす
+
+// ---------------------------------------------------------------------------
+// WebSocket reconnect
+// ---------------------------------------------------------------------------
+#define WS_RECONNECT_INTERVAL_MS 3000
+#define WS_RECONNECT_MAX_INTERVAL_MS 30000
+
+// ---------------------------------------------------------------------------
+// WebSocket client (ESP-IDF esp_websocket_client)
+// ---------------------------------------------------------------------------
+#define WS_CTRL_TASK_PRIO 2        // 制御 WS のクライアントのタスク優先度 (コアは固定できない)
+#define WS_MEDIA_TASK_PRIO 1       // メディア WS のクライアントのタスク優先度
+#define WS_TASK_STACK 6144         // クライアントのタスクのスタック
+#define WS_RX_BUFFER_SIZE 4096     // 受信バッファ。これを超えるフレームは断片で届く
+#define WS_RX_MAX_FRAME 131072     // 組み立てる 1 フレームの上限 (PSRAM に一時確保)
+#define WS_RX_INLINE_MAX 512       // 確保せずに NUL 終端する小さなテキストの上限
+#define WS_SEND_TIMEOUT_MS 3000    // 送信 1 回の上限 (ロック待ちと書き込みの合計。改訂 1 で 1000 → 3000)
+#define WS_TX_RETRY_MAX 3          // 制御 WS の event / joy の送信失敗を何回まで許すか (この回数失敗したら捨てる)
+#define WS_PING_INTERVAL_S 10
+
+// ---------------------------------------------------------------------------
+// Network tasks — loop() はネットワーク I/O をしない
+// ---------------------------------------------------------------------------
+#define NET_CTRL_TASK_CORE 0     // 制御 WS (/ws/device) の送信と再接続の管理
+#define NET_CTRL_TASK_PRIO 2
+#define NET_CTRL_TASK_STACK 8192
+#define NET_MEDIA_TASK_CORE 0    // メディア WS (/ws/media: マイク PCM / カメラ JPEG 上り)
+#define NET_MEDIA_TASK_PRIO 1
+#define NET_MEDIA_TASK_STACK 8192
+#define NET_RX_QUEUE_LEN 32      // Hub → loop() の受信キュー (テキスト / スピーカー PCM)
+#define NET_TX_QUEUE_LEN 16      // loop() → 制御 WS の event / joy キュー (満杯なら最古を捨てる)
+#define NET_ODOM_QUEUE_LEN 2     // 同 odom 専用キュー (latest-wins: 送信が詰まれば古い odom を捨てる)
+#define MIC_TX_QUEUE_LEN 8       // マイクフレーム (32 ms) のキュー = 256 ms 分
+
+// ---------------------------------------------------------------------------
+// Diagnostics / Setup GUI
+// ---------------------------------------------------------------------------
+#define DIAG_INTERVAL_MS 5000
+#define SETUP_LONG_PRESS_MS 3000
+#define HUB_WS_PORT 8341  // Open StackChan Move Hub の既定ポート
+
+// ---------------------------------------------------------------------------
+// Vehicle geometry — 実測値。すべて変更可能
+// ---------------------------------------------------------------------------
+#define WHEEL_DIAMETER_MM 37.0f  // 車輪直径 [mm]
+#define TRACK_WIDTH_MM 77.5f     // トレッド (左右車輪の接地点間距離) [mm]
+
+// ---------------------------------------------------------------------------
+// Wheel servos (SCS0009, 速度開環電機モード)
+// ---------------------------------------------------------------------------
+#define WHEEL_SERVO_ID_LEFT 2   // 旧ピッチ (実機確認 2026-08-27: ID1 は右側に取り付けられている)
+#define WHEEL_SERVO_ID_RIGHT 1  // 旧ヨー
+#define WHEEL_LEFT_SIGN (+1)    // 左右は鏡像取り付けのため片側を反転する (実機で確認)
+#define WHEEL_RIGHT_SIGN (-1)
+#define WHEEL_POS_SIGN (-1)     // ReadPos の増加方向は WritePWM 正方向の回転と逆 (実機確認 2026-08-27)。オドメトリのみに掛ける
+#define WHEEL_UART_NUM UART_NUM_1
+#define WHEEL_UART_BAUD 1000000
+#define WHEEL_UART_TX_PIN 6
+#define WHEEL_UART_RX_PIN 7
+
+#define WHEEL_POS_STEPS 1024       // ReadPos の有効範囲 0..1023
+#define WHEEL_POS_VALID_DEG 300.0f  // 上記が対応する機械角 (規格書 §7-7)
+#define WHEEL_POS_VALID_MIN 12      // この値以下は飽和端 (locked では採用しない。実測: 左 0〜12 / 右 0〜6)
+#define WHEEL_POS_VALID_MAX 1012    // この値以上は飽和端 (実測: 左 1013〜1022 / 右 1014〜1022)
+// 不感帯にロバストな位置トラッカ (locked / crossing / lost)
+#define WHEEL_OMEGA_PHYS_MAX_RADPS 12.0f  // 物理上限 (無負荷 10.5 rad/s + 余裕)。1 サンプルの |Δθ| がこれ×dt を超える差分は棄却
+#define WHEEL_DEAD_DEG 40.0f              // 不感帯の機械角。実測 (2026-09-08、3 セッション 179 回の横断) 中央値 40°、p10-p90 38〜42°
+#define WHEEL_RELOCK_TOL_STEP 60          // 横断中、予測位置との差がこの範囲内の読み値を再ロック候補とする [step]
+#define WHEEL_RELOCK_SAMPLES 2            // 再ロックに必要な連続整合サンプル数
+#define WHEEL_LOST_DEG 120.0f             // 横断中の外挿累積がこれを超えたら lost
+#define WHEEL_OMEGA_FRESH_MS 40           // 停止指令中の横断で、直近の実測 ω を 0 まで線形減衰させる時間 (実測: PWM 0 で 1 サンプル以内に停止)
+#define WHEEL_OMEGA_EMA_ALPHA 0.3f        // 実測 ω の指数平滑係数 (外挿と KP 補正に使う)
+
+#define WHEEL_PWM_MAX 1000            // WritePWM の絶対値上限 (ドライバは bit10 を方向に使う)
+#define WHEEL_PWM_DEADBAND_L 60       // 左: 静止摩擦を超えない PWM 幅 (校正で実測)
+#define WHEEL_PWM_DEADBAND_R 60       // 右
+#define WHEEL_PWM_PER_RAD_S_L 95.0f   // 左: フィードフォワード係数 [PWM / (rad/s)]
+#define WHEEL_PWM_PER_RAD_S_R 95.0f   // 右
+#define WHEEL_KP 0.0f                 // 実測車輪角速度による P 補正 (0 = オープンループ)
+#define WHEEL_MIN_OMEGA_RADPS 0.05f   // これ未満の目標角速度は停止扱い
+
+// ---------------------------------------------------------------------------
+// Drive limits / watchdog
+// ---------------------------------------------------------------------------
+#define MAX_V_MPS 0.15f     // 目標並進速度上限 [m/s]
+#define MAX_W_RADPS 2.0f    // 目標角速度上限 [rad/s]
+#define DRIVE_TIMEOUT_MS 500  // Hub 指令のウォッチドッグ
+#define DRIVE_WRITE_MIN_MS 20 // PWM 書き込みの最短間隔 (変化時)
+#define DRIVE_WRITE_KEEPALIVE_MS 200  // PWM 変化が無くても再書き込みする間隔
+
+// ---------------------------------------------------------------------------
+// Odometry
+// ---------------------------------------------------------------------------
+#define ODOM_SAMPLE_MS 20        // ReadPos サンプリング周期 (50 Hz)
+#define ODOM_SEND_HZ_DEFAULT 50  // odom 送信レートの既定値 [Hz] (Hub が odom_rate で上書き)
+#define ODOM_SEND_HZ_MIN 5       // odom_rate のクランプ下限 [Hz]
+#define ODOM_SEND_HZ_MAX 50      // 同上限 [Hz] (= サンプルレート ODOM_SAMPLE_MS の 50 Hz。それ以上は意味が無い)
+#define ODOM_VEL_WINDOW_MS 200   // v, w の移動平均窓
+#define ODOM_TASK_STACK 4096
+#define ODOM_TASK_PRIO 2         // 音声給送タスク (3) より低くする
+#define ODOM_TASK_CORE 1
+
+// ---------------------------------------------------------------------------
+// Camera streaming
+// ---------------------------------------------------------------------------
+#define CAM_STREAM_FPS 5      // 既定の配信レート [fps]
+#define CAM_JPEG_QUALITY 60   // 既定の JPEG 品質 (frame2jpg)
+#define CAM_FPS_MIN 1         // Hub の camera.fps クランプ下限
+#define CAM_FPS_MAX 10        // 同上限 (ソフトウェア JPEG の実効上限)
+#define CAM_QUALITY_MIN 10    // Hub の camera.quality クランプ下限
+#define CAM_QUALITY_MAX 90    // 同上限
+#define CAM_TASK_CORE 0       // loop()/音声 (Core 1) から切り離す
+#define CAM_TASK_PRIO 1       // 音声給送 (3) / オドメトリ (2) より低くする
+#define CAM_TASK_STACK 8192
+#define CAM_FRAME_HDR_LEN 5   // バイナリヘッダ [kind u8][ts_ms u32 LE]
+// 画像の向き: 配信画像はカメラから見た右が画像の右 (非鏡像) を正とする。
+// センサ設定 (set_hmirror) は GC0308 で効果が確認できなかったため、RGB565 フレームを
+// JPEG 化の前にソフトウェアで反転する。実機 2026-08-27: センサ出力は鏡像 → 1 で補正。
+#define CAM_HMIRROR 1         // 1 で左右反転 (ソフトウェア)
+#define CAM_VFLIP 0           // 1 で上下反転 (ソフトウェア)
+
+// ---------------------------------------------------------------------------
+// Joystick remote — M5StickC Plus + Hat MiniJoyC の ESP-NOW リモコン
+// ---------------------------------------------------------------------------
+#define JOY_PAIR_KEY 0x5354434Au    // 'S','T','C','J'。firmware_remote と同値にすること
+#define JOY_ESPNOW_ENCRYPT 0        // 1 = ESP-NOW の PMK/LMK 暗号化を使う (両側で揃えること)
+#define JOY_ALLOW_REPAIR 1          // 1 = 別のリモコンからの DISCOVER でペアを上書きする
+#define JOY_LINK_TIMEOUT_MS 500     // 最終 JOY 受信からこれを超えたらリンク断 = 停止 (デッドマン)
+#define JOY_LONG_PRESS_MS 1500      // 長押し判定 (Hub 未接続時のローカルソース切替)
+#define JOY_SEND_MIN_DELTA 0.02f    // joy{} を Hub に送る x / y の変化しきい値
+#define JOY_SEND_HEARTBEAT_MS 1000  // 変化が無くても joy{} を送る間隔
+#define JOY_SEND_MAX_HZ 10          // joy{} 送信の上限レート
+// STA 接続中のモデムスリープ (既定 WIFI_PS_MIN_MODEM) では DTIM ビーコン以外 RF が切れ、
+// 非接続端末 (リモコン) からの ESP-NOW ブロードキャストをほぼ取りこぼす (実機 2026-08-27:
+// DISCOVER 50 発に ACK 0)。1 で esp_wifi_set_ps(WIFI_PS_NONE) にする。stackchan_fsr では
+// WiFi.setSleep(false) が音声再生を悪化させた (loop() からのスピーカー給送時代) ため、
+// 有効にしたら必ず音声の再生が途切れないことを確認すること。0 でリモコンは実用不可。
+#define JOY_WIFI_PS_NONE 1

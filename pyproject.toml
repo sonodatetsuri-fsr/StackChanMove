@@ -1,0 +1,62 @@
+[project]
+name = "open-stackchan-move"
+version = "0.1.0"
+description = "Open StackChan Move Hub (drive, controller switching, camera relay, audio plugins)"
+requires-python = ">=3.12,<3.13"
+license = "MIT"
+dependencies = [
+    "fastapi==0.138.0",
+    "uvicorn[standard]==0.49.0",
+    "websockets==16.0",
+    "pydantic==2.13.4",
+    "python-dotenv==1.2.2",
+    "httpx==0.28.1",
+    "numpy==2.5.0",
+    "Pillow==12.3.0",
+    "uvloop==0.22.1; sys_platform != 'win32'",
+    # 音声 (stackchan_move と同じ版)。
+    "ctranslate2==4.8.0",
+    "faster-whisper==1.2.1",
+    "onnxruntime==1.27.0",
+    "silero-vad==6.2.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "ruff==0.15.19",
+]
+# GPU のある PC だけ入れる (`uv sync --group cuda`)。faster-whisper (CTranslate2) が使う cuBLAS / cuDNN 9。
+cuda = [
+    "nvidia-cublas-cu12",
+    "nvidia-cudnn-cu12==9.*",
+]
+
+[tool.uv]
+# silero-vad は同梱の ONNX モデル (silero_vad/data/silero_vad.onnx) だけを onnxruntime で使う。
+# パッケージが要求する torch / torchaudio は使わないため、満たせないマーカーで上書きして入れない。
+override-dependencies = [
+    "torch; sys_platform == 'never'",
+    "torchaudio; sys_platform == 'never'",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openmovehub"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = [".venv", ".venv-pio", ".pio"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["src", "tools"]
